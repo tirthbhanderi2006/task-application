@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function TaskManager() {
+export default function TaskManager({ setAuth }) {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -15,12 +15,28 @@ export default function TaskManager() {
   const [loading, setLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState('checking');
 
+  const getHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  };
+
+  const handleUnauthorized = (status) => {
+    if (status === 401) {
+      localStorage.removeItem('token');
+      if (setAuth) setAuth(false);
+    }
+  };
+
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/tasks`);
+      const res = await fetch(`${API_BASE}/api/tasks`, { headers: getHeaders() });
+      handleUnauthorized(res.status);
+      if (!res.ok) throw new Error('Failed to fetch tasks');
       const json = await res.json();
-      // Handle HATEOAS response: tasks are in json.data
       const list = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
       setTasks(list);
       setServerStatus('online');
@@ -43,9 +59,10 @@ export default function TaskManager() {
     try {
       const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ title, description })
       });
+      handleUnauthorized(res.status);
       if (res.ok) {
         setTitle('');
         setDescription('');
@@ -78,12 +95,13 @@ export default function TaskManager() {
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({
           title: editTitle,
           description: editDescription
         })
       });
+      handleUnauthorized(res.status);
       if (res.ok) {
         cancelEditing();
         fetchTasks();
@@ -98,9 +116,10 @@ export default function TaskManager() {
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ completed: !currentCompleted })
       });
+      handleUnauthorized(res.status);
       if (res.ok) {
         fetchTasks();
       }
@@ -113,8 +132,10 @@ export default function TaskManager() {
   const handleDeleteTask = async (id) => {
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       });
+      handleUnauthorized(res.status);
       if (res.ok) {
         fetchTasks();
       }
@@ -195,7 +216,7 @@ export default function TaskManager() {
                     /* Edit Form Mode */
                     <form onSubmit={(e) => handleUpdateTask(t.id, e)} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>#{t.id}</span>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary)' }} title={`ID: ${t.id}`}>#{t.id.slice(-5)}</span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>EDIT TASK</span>
                       </div>
                       <input
@@ -227,7 +248,7 @@ export default function TaskManager() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>#{t.id}</span>
+                          <span style={{ fontWeight: 'bold', color: 'var(--primary)' }} title={`ID: ${t.id}`}>#{t.id.slice(-5)}</span>
                           <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{t.title}</span>
                           <span style={{
                             fontSize: '0.7rem',
