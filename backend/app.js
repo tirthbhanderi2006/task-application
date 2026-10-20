@@ -11,6 +11,12 @@ import Task from './models/Task.js';
 import { protect } from './middleware/auth.js';
 import { validateTask, validateAuth } from './middleware/validate.js';
 import cache from './config/cache.js';
+import eventBus from './eda/eventBus.js';
+import { registerSubscribers } from './eda/subscribers.js';
+import edaRoutes from './routes/edaRoutes.js';
+
+// Initialize Decoupled Subscribers for Event-Driven Architecture (EDA)
+registerSubscribers();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,6 +103,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// --- EVENT-DRIVEN ARCHITECTURE (EDA) ROUTES ---
+app.use('/api/eda', edaRoutes);
+
 // --- AUTH ROUTES ---
 
 // POST /api/auth/register
@@ -109,6 +118,9 @@ app.post('/api/auth/register', validateAuth, async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password: hashedPassword });
     
+    // EDA: Publish domain event
+    eventBus.publish('user:registered', { email: user.email, userId: user._id }, user.email);
+
     res.status(201).json({ message: 'User registered successfully', userId: user._id });
   } catch (err) {
     next(err);
@@ -127,6 +139,10 @@ app.post('/api/auth/login', validateAuth, async (req, res, next) => {
     if (!isMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    
+    // EDA: Publish domain event
+    eventBus.publish('user:logged_in', { email: user.email, userId: user._id }, user.email);
+
     res.status(200).json({ token, user: { id: user._id, email: user.email } });
   } catch (err) {
     next(err);
@@ -175,10 +191,11 @@ app.get('/api/tasks', async (req, res, next) => {
 // POST /api/tasks
 app.post('/api/tasks', validateTask, async (req, res, next) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, priority = 'medium' } = req.body;
     const task = await Task.create({
       title,
       description,
+      priority,
       user: req.user.id
     });
 
@@ -186,6 +203,10 @@ app.post('/api/tasks', validateTask, async (req, res, next) => {
     const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
     cache.del(cacheKey);
     cache.del('all_tasks');
+
+    // EDA: Publish decoupled domain event
+    const actor = req.user?.email || 'Tirth Bhanderi';
+    eventBus.publish('task:created', task.toObject(), actor);
 
     res.status(201).json(task);
   } catch (err) {
@@ -196,13 +217,16 @@ app.post('/api/tasks', validateTask, async (req, res, next) => {
 // PUT /api/tasks/:id
 app.put('/api/tasks/:id', async (req, res, next) => {
   try {
-    const { title, description, completed } = req.body;
+    const { title, description, completed, priority } = req.body;
     const task = await Task.findOne({ _id: req.params.id, user: req.user.id });
     if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    const previousCompleted = task.completed;
 
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
     if (completed !== undefined) task.completed = Boolean(completed);
+    if (priority !== undefined) task.priority = priority;
 
     await task.save();
 
@@ -210,6 +234,13 @@ app.put('/api/tasks/:id', async (req, res, next) => {
     const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
     cache.del(cacheKey);
     cache.del('all_tasks');
+
+    // EDA: Publish decoupled domain events
+    const actor = req.user?.email || 'Tirth Bhanderi';
+    if (completed !== undefined && Boolean(completed) !== previousCompleted) {
+      eventBus.publish('task:status_changed', task.toObject(), actor);
+    }
+    eventBus.publish('task:updated', task.toObject(), actor);
 
     res.status(200).json(task);
   } catch (err) {
@@ -227,6 +258,10 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
     const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
     cache.del(cacheKey);
     cache.del('all_tasks');
+
+    // EDA: Publish decoupled domain event
+    const actor = req.user?.email || 'Tirth Bhanderi';
+    eventBus.publish('task:deleted', { taskId: req.params.id, title: task.title, user: req.user.id }, actor);
 
     res.status(200).json({ message: 'Task deleted' });
   } catch (err) {

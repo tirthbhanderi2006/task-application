@@ -110,3 +110,32 @@ Implemented in-memory server-side caching using `node-cache` (60s TTL) for `GET 
 - **Detailed Academic Report & Viva Questions:** See [docs/PRACTICAL_9_REPORT.md](docs/PRACTICAL_9_REPORT.md)
 - **Raw Benchmark Metrics Data:** [docs/metrics_practical9.json](docs/metrics_practical9.json)
 - **Automated Benchmark Suite:** `node scripts/measure_practical9_caching.js`
+
+---
+
+### Practical 10: Asynchronous Processing with Event-Driven Architecture (EDA)
+
+Implemented a decoupled in-process Pub/Sub Event Bus (`EventEmitter`), real-time unidirectional streaming via Server-Sent Events (SSE), and non-blocking background worker queues returning `HTTP 202 Accepted` with retry backoff and Dead Letter Queue (DLQ) fault isolation.
+
+#### Visual Evidence (Portfolio Theme)
+
+##### 1. Tasks Page with Live Clock & EDA Action Button
+![Figure 1: Tasks Page with EDA Trigger Button](docs/screenshots/practical10_01_tasks_page_eda_button.png)
+
+##### 2. Event-Driven Architecture Drawer (SSE Connected)
+![Figure 2: Live Stream Tab Waiting for Events](docs/screenshots/practical10_02_eda_drawer_live_stream_waiting.png)
+
+##### 3. Async Jobs Tab (HTTP 202 Accepted, CSV Export & DLQ Failure)
+![Figure 3: Async Jobs Tab](docs/screenshots/practical10_03_async_jobs_http202_completed_dlq.png)
+
+##### 4. Live Stream Tab (Real-Time Domain Events)
+![Figure 4: Populated Live Domain Event Stream](docs/screenshots/practical10_04_live_stream_populated_events.png)
+
+##### 5. Telemetry & Stats (Quad Metrics & Subscriber Topic Bindings)
+![Figure 5: Telemetry Quad Metrics](docs/screenshots/practical10_05_telemetry_stats_subscriber_bindings.png)
+
+##### 6. Telemetry Scrolled View (Architecture Notes & Fault Isolation)
+![Figure 6: Telemetry Scrolled View](docs/screenshots/practical10_06_telemetry_how_it_works_scrolled.png)
+
+- **Detailed Academic Report & Viva Questions:** See [docs/PRACTICAL_10_REPORT.md](docs/PRACTICAL_10_REPORT.md)
+- **Automated Suite & Screenshot Runner:** `node scripts/capture_practical10_eda_screenshots.js`
