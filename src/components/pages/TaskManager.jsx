@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ToastContainer from '../common/Toast';
 import ConfirmModal from '../common/ConfirmModal';
+import EventDrivenArchitectureDrawer from '../eda/EventDrivenArchitectureDrawer';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -11,6 +12,7 @@ export default function TaskManager({ setAuth }) {
   const [serverStatus, setServerStatus] = useState('checking'); // 'online' | 'offline' | 'checking'
   const [lastSynced, setLastSynced] = useState(null);
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date().toLocaleString());
+  const [isEdaOpen, setIsEdaOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -98,7 +100,7 @@ export default function TaskManager({ setAuth }) {
 
     try {
       const res = await fetch(`${API_BASE}/api/tasks`, {
-        headers: { Accept: 'application/json' }
+        headers: getHeaders()
       });
 
       if (!res.ok) {
@@ -419,7 +421,16 @@ export default function TaskManager({ setAuth }) {
           )}
         </div>
 
-        <div className="task-status-actions">
+        <div className="task-status-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="eda-trigger-btn"
+            onClick={() => setIsEdaOpen(true)}
+            title="Open Event Stream & Async Jobs (EDA)"
+          >
+            <span className="eda-pulse-dot"></span>
+            ⚡ EVENT STREAM & ASYNC JOBS
+          </button>
           <button
             type="button"
             className="task-btn-secondary btn-sm"
@@ -451,6 +462,11 @@ export default function TaskManager({ setAuth }) {
           <div className="stat-label">Completed</div>
           <div className="stat-value stat-value-completed">{completedCount}</div>
           <div className="stat-sub">{totalCount > 0 ? `${Math.round((completedCount / totalCount) * 100)}% done` : '0% done'}</div>
+        </div>
+        <div className="task-stat-card">
+          <div className="stat-label">High Priority</div>
+          <div className="stat-value" style={{ color: '#ef4444' }}>{tasks.filter((t) => t.priority === 'high').length}</div>
+          <div className="stat-sub">Urgent attention</div>
         </div>
       </div>
 
@@ -798,6 +814,12 @@ export default function TaskManager({ setAuth }) {
           )}
         </div>
       </div>
+      {/* Event-Driven Architecture (EDA) Drawer */}
+      <EventDrivenArchitectureDrawer
+        isOpen={isEdaOpen}
+        onClose={() => setIsEdaOpen(false)}
+        userEmail="Tirth Bhanderi"
+      />
     </section>
   );
 }
