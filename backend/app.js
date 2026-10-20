@@ -11,15 +11,18 @@ import Task from './models/Task.js';
 import { protect } from './middleware/auth.js';
 import { validateTask, validateAuth } from './middleware/validate.js';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config();
+
 const LOG_FILE = path.join(__dirname, 'logs/requests.log.csv');
 
 // Create logs directory if it doesn't exist
 if (!fs.existsSync(path.join(__dirname, 'logs'))) {
-  fs.mkdirSync(path.join(__dirname, 'logs'));
+  fs.mkdirSync(path.join(__dirname, 'logs'), { recursive: true });
 }
 
 if (!fs.existsSync(LOG_FILE)) {
@@ -51,7 +54,7 @@ const appendLogToCSV = (timestamp, method, url, ip, statusCode) => {
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/task-manager';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/task-manager';
 
 // Connect to MongoDB
 mongoose.connect(MONGO_URI)
@@ -83,6 +86,14 @@ app.use((req, res, next) => {
     appendLogToCSV(timestamp, req.method, req.url, ip, statusCode);
   });
   next();
+});
+
+// Root Health Endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Task Management API with Authentication is running',
+    version: '1.0.0'
+  });
 });
 
 // --- AUTH ROUTES ---
@@ -192,7 +203,11 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
 
 // 404 Handler
 app.use((req, res, next) => {
-  res.status(404).json({ error: `Route ${req.method} ${req.url} not found` });
+  res.status(404).json({
+    success: false,
+    error: 'Not Found',
+    message: `Route ${req.method} ${req.url} not found`
+  });
 });
 
 // Global Error Handler

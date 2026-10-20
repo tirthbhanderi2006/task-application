@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Header from './components/layout/header';
 import Footer from './components/layout/footer';
-import TaskManager from './components/pages/TaskManager';
-import Login from './components/pages/Login';
-import Register from './components/pages/Register';
-import NotFound from './components/layout/NotFound';
+import RouteLoadingFallback from './components/common/RouteLoadingFallback';
+
+// Route-based code splitting using React.lazy()
+const TaskManager = lazy(() => import('./components/pages/TaskManager'));
+const Login = lazy(() => import('./components/pages/Login'));
+const Register = lazy(() => import('./components/pages/Register'));
+const NotFound = lazy(() => import('./components/layout/NotFound'));
 
 function Layout({ theme, toggleTheme, auth, setAuth, user }) {
   return (
@@ -14,7 +17,9 @@ function Layout({ theme, toggleTheme, auth, setAuth, user }) {
       <Navbar theme={theme} toggleTheme={toggleTheme} auth={auth} setAuth={setAuth} user={user} />
       <Header />
       <main className="content-container">
-        <Outlet />
+        <Suspense fallback={<RouteLoadingFallback message="Loading page component..." />}>
+          <Outlet />
+        </Suspense>
       </main>
       <Footer />
     </div>
@@ -83,21 +88,27 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Layout theme={theme} toggleTheme={toggleTheme} auth={auth} setAuth={setAuth} user={user} />}>
-          <Route index element={
-            <ProtectedRoute auth={auth}>
-              <TaskManager setAuth={setAuth} />
-            </ProtectedRoute>
-          } />
-          <Route path="login" element={<Login setAuth={setAuth} />} />
-          <Route path="register" element={<Register setAuth={setAuth} />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<RouteLoadingFallback message="Loading application..." />}>
+        <Routes>
+          <Route path="/" element={<Layout theme={theme} toggleTheme={toggleTheme} auth={auth} setAuth={setAuth} user={user} />}>
+            <Route index element={
+              <ProtectedRoute auth={auth}>
+                <TaskManager setAuth={setAuth} />
+              </ProtectedRoute>
+            } />
+            <Route path="tasks" element={
+              <ProtectedRoute auth={auth}>
+                <TaskManager setAuth={setAuth} />
+              </ProtectedRoute>
+            } />
+            <Route path="login" element={<Login setAuth={setAuth} />} />
+            <Route path="register" element={<Register setAuth={setAuth} />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
 
 export default App;
-
