@@ -1,0 +1,128 @@
+{
+  "practical": "Practical 8: Performance Optimization and Lazy Loading in React",
+  "timestamp": "2026-10-20T05:19:34.084Z",
+  "baseline": {
+    "description": "Single monolithic bundle without code splitting (All routes in main.js)",
+    "initialBundleFile": "dist/assets/index-L01qC0o1.js",
+    "bundleSizeRawBytes": 301320,
+    "bundleSizeFormatted": "301.32 kB",
+    "bundleSizeGzip": "92.57 kB",
+    "totalBuildTime": "2.17s",
+    "chunksCount": 1,
+    "cssSize": "47.83 kB"
+  },
+  "optimized": {
+    "description": "Route-based code splitting using React.lazy() and Suspense",
+    "mainBundleFile": "dist/assets/index-BDd0WrT7.js",
+    "mainBundleSizeFormatted": "239.86 kB",
+    "mainBundleGzip": "76.67 kB",
+    "mainBundleReductionBytes": 61460,
+    "mainBundleReductionPercentage": "20.4%",
+    "cssSize": "49.78 kB",
+    "chunks": [
+      {
+        "route": "/",
+        "component": "Projects",
+        "chunk": "Projects-roiqQS5Z.js",
+        "size": "2.96 kB",
+        "gzip": "1.47 kB"
+      },
+      {
+        "route": "/about",
+        "component": "AboutMe",
+        "chunk": "AboutMe-BuJnRU-E.js",
+        "size": "3.58 kB",
+        "gzip": "1.35 kB"
+      },
+      {
+        "route": "/tasks",
+        "component": "TaskManager",
+        "chunk": "TaskManager-I2jNTZps.js",
+        "size": "20.47 kB",
+        "gzip": "5.45 kB"
+      },
+      {
+        "route": "/api-explorer",
+        "component": "ApiExplorer",
+        "chunk": "ApiExplorer-4c9HkTSQ.js",
+        "size": "22.10 kB",
+        "gzip": "6.17 kB"
+      },
+      {
+        "route": "/github",
+        "component": "GitHubRepos",
+        "chunk": "GitHubRepos-_RIZ2Kex.js",
+        "size": "8.53 kB",
+        "gzip": "3.41 kB"
+      },
+      {
+        "route": "/certificates",
+        "component": "Certificates",
+        "chunk": "Certificates-BZpgwD4z.js",
+        "size": "2.74 kB",
+        "gzip": "1.28 kB"
+      },
+      {
+        "route": "/contact",
+        "component": "Contact",
+        "chunk": "Contact-DjJz0Crn.js",
+        "size": "2.93 kB",
+        "gzip": "1.05 kB"
+      },
+      {
+        "route": "*",
+        "component": "NotFound",
+        "chunk": "NotFound-CT5rCgwd.js",
+        "size": "0.52 kB",
+        "gzip": "0.31 kB"
+      }
+    ]
+  },
+  "networkDownloads": [
+    {
+      "url": "index-m6IstowK.css",
+      "status": 200,
+      "type": "stylesheet"
+    },
+    {
+      "url": "index-BDd0WrT7.js",
+      "status": 200,
+      "type": "javascript"
+    },
+    {
+      "url": "Projects-roiqQS5Z.js",
+      "status": 200,
+      "type": "javascript"
+    },
+    {
+      "url": "index-m6IstowK.css",
+      "status": 304,
+      "type": "stylesheet"
+    },
+    {
+      "url": "index-BDd0WrT7.js",
+      "status": 304,
+      "type": "javascript"
+    },
+    {
+      "url": "TaskManager-I2jNTZps.js",
+      "status": 200,
+      "type": "javascript"
+    },
+    {
+      "url": "index-BDd0WrT7.js",
+      "status": 304,
+      "type": "javascript"
+    },
+    {
+      "url": "index-m6IstowK.css",
+      "status": 304,
+      "type": "stylesheet"
+    },
+    {
+      "url": "Contact-DjJz0Crn.js",
+      "status": 200,
+      "type": "javascript"
+    }
+  ]
+}

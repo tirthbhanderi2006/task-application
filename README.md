@@ -54,3 +54,34 @@ npm run dev
 ### REST Maturity
 
 See [MATURITY.md](MATURITY.md) for the full Richardson Maturity Model evaluation with HATEOAS examples.
+
+---
+
+### Practical 8: Performance Optimization & Route-Based Lazy Loading
+
+Implemented route-level code splitting using `React.lazy()` and `React.Suspense` with an accessible, theme-aware skeleton fallback UI (`RouteLoadingFallback.jsx`).
+
+#### Performance Comparison Table
+
+| Metric | Before Optimization (Monolithic Bundle) | After Optimization (Code Splitting) | Delta / Improvement |
+|---|---|---|---|
+| **Initial Main JS Bundle** | `index-L01qC0o1.js` (301.32 kB) | `index-BDd0WrT7.js` (239.86 kB) | **-61.46 kB (-20.4%)** |
+| **Gzip Compressed Size** | 92.57 kB | 76.67 kB | **-15.90 kB (-17.2%)** |
+| **Vite Build Time** | 2.17s | 1.02s | **53.0% faster** |
+| **Bundle Architecture** | 1 monolithic bundle (all routes upfront) | 9 discrete asynchronous chunks | Route chunks loaded on demand |
+
+#### Visual Evidence
+
+##### 1. Chrome DevTools Network Tab (Slow 3G Profiling & Route Chunks)
+![DevTools Network Tab](docs/screenshots/practical8_06_devtools_network_tab.png)
+
+##### 2. Vite Build Comparison (Monolithic Bundle vs Code Splitting)
+![Vite Build Comparison](docs/screenshots/practical8_07_vite_build_terminal.png)
+
+##### 3. Slow 3G Suspense Fallback UI (Spinner + Skeleton Shimmer)
+![Slow 3G Fallback UI](docs/screenshots/practical8_01_slow3g_fallback_ui.png)
+
+- **Detailed Academic Report & Viva Questions:** See [docs/PRACTICAL_8_REPORT.md](docs/PRACTICAL_8_REPORT.md)
+- **All Screenshots:** View complete image set in [docs/screenshots/](docs/screenshots/)
+- **Automated Profiling Suite:** `node scripts/measure_practical8_metrics.js`
+- **Raw Metrics Data:** [docs/metrics_practical8.json](docs/metrics_practical8.json)
