@@ -2,35 +2,33 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import connectDB from './config/db.config.js';
-import taskRoutes from './routes/taskRoutes.js';
-import firebaseTaskRoutes from './routes/firebaseTaskRoutes.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import User from './models/User.js';
+import Task from './models/Task.js';
+import { protect } from './middleware/auth.js';
+import { validateTask, validateAuth } from './middleware/validate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from backend/.env and root .env
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 
-// Connect to database (MongoDB or Firebase)
-connectDB();
 const LOG_FILE = path.join(__dirname, 'logs/requests.log.csv');
 
-// Ensure log directory exists
-const logDir = path.dirname(LOG_FILE);
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+// Create logs directory if it doesn't exist
+if (!fs.existsSync(path.join(__dirname, 'logs'))) {
+  fs.mkdirSync(path.join(__dirname, 'logs'), { recursive: true });
 }
 
 if (!fs.existsSync(LOG_FILE)) {
   fs.writeFileSync(LOG_FILE, 'Timestamp,Method,URL,IP,StatusCode\n', 'utf8');
 }
 
-// Helper to escape CSV values safely
 const escapeCSV = (field) => {
   const str = String(field ?? '');
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -39,7 +37,6 @@ const escapeCSV = (field) => {
   return str;
 };
 
-// Helper to append log row asynchronously using native 'fs'
 const appendLogToCSV = (timestamp, method, url, ip, statusCode) => {
   const row = [
     escapeCSV(timestamp),
@@ -50,32 +47,35 @@ const appendLogToCSV = (timestamp, method, url, ip, statusCode) => {
   ].join(',') + '\n';
 
   fs.appendFile(LOG_FILE, row, (err) => {
-    if (err) {
-      console.error('Error writing request log to CSV:', err.message);
-    }
+    if (err) console.error('Error writing request log to CSV:', err.message);
   });
 };
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/task-manager';
+
+// Connect to MongoDB
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 app.enable('trust proxy');
-
-// Body parser middleware
 app.use(express.json());
 
-// Enable CORS for cross-origin frontend requests
+// Enable CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
   next();
 });
 
-// Request Logging Middleware (Console + CSV File)
+// Logging Middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
@@ -85,58 +85,123 @@ app.use((req, res, next) => {
     console.log(`[${timestamp}] ${req.method} ${req.url} ${ip} - HTTP ${statusCode}`);
     appendLogToCSV(timestamp, req.method, req.url, ip, statusCode);
   });
-
   next();
 });
 
-// Root endpoint
+// Root Health Endpoint
 app.get('/', (req, res) => {
-  const base = `${req.protocol}://${req.get('host')}`;
-  const activeDb = (process.env.DB_TYPE || 'mongo').toUpperCase();
   res.status(200).json({
-    message: `Task Management API is running (Active DB Provider: ${activeDb})`,
-    activeDatabase: process.env.DB_TYPE || 'mongo',
-    _links: {
-      self:   { href: `${base}/`,          method: 'GET' },
-      api:    { href: `${base}/api`,       method: 'GET' },
-      tasks:  { href: `${base}/api/tasks`, method: 'GET' },
-      create: { href: `${base}/api/tasks`, method: 'POST' }
-    }
+    message: 'Task Management API with Authentication is running',
+    version: '1.0.0'
   });
 });
 
-// Discoverable API entry point (HATEOAS Level 3)
-app.get('/api', (req, res) => {
-  const base = `${req.protocol}://${req.get('host')}`;
-  res.status(200).json({
-    name: 'Task Management REST API',
-    version: '2.0.0',
-    activeDatabase: process.env.DB_TYPE || 'mongo',
-    description: 'A RESTful API supporting dynamic switching between MongoDB & Firebase Firestore',
-    _links: {
-      self:       { href: `${base}/api`,       method: 'GET' },
-      tasks:      { href: `${base}/api/tasks`, method: 'GET',  description: 'Manage tasks for active DB' },
-      createTask: { href: `${base}/api/tasks`, method: 'POST', description: 'Create a new task' }
-    }
-  });
+// --- AUTH ROUTES ---
+
+// POST /api/auth/register
+app.post('/api/auth/register', validateAuth, async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const userExists = await User.findOne({ email });
+    if (userExists) return res.status(400).json({ error: 'User already exists' });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ email, password: hashedPassword });
+    
+    res.status(201).json({ message: 'User registered successfully', userId: user._id });
+  } catch (err) {
+    next(err);
+  }
 });
 
-// --- Unified REST Endpoints for Tasks (Switches DB via DB_TYPE in .env) ---
-app.use('/api/tasks', taskRoutes);
-app.use('/tasks', taskRoutes);
+// POST /api/auth/login
+app.post('/api/auth/login', validateAuth, async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
-// Optional: Direct Firebase router mount if needed
-app.use('/api/firebase/tasks', firebaseTaskRoutes);
-app.use('/firebase/tasks', firebaseTaskRoutes);
-
-// Test endpoint for simulating internal server error (500 Internal Server Error)
-app.get('/api/error-test', (req, res, next) => {
-  const err = new Error('Simulated internal server error');
-  err.status = 500;
-  next(err);
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    res.status(200).json({ token, user: { id: user._id, email: user.email } });
+  } catch (err) {
+    next(err);
+  }
 });
 
-// 404 Handler for undefined routes
+// GET /api/auth/me
+app.get('/api/auth/me', protect, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.status(200).json(user);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- TASK ROUTES ---
+// Protect all task routes
+app.use('/api/tasks', protect);
+
+// GET /api/tasks
+app.get('/api/tasks', async (req, res, next) => {
+  try {
+    const tasks = await Task.find({ user: req.user.id });
+    res.status(200).json({ data: tasks });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/tasks
+app.post('/api/tasks', validateTask, async (req, res, next) => {
+  try {
+    const { title, description } = req.body;
+    const task = await Task.create({
+      title,
+      description,
+      user: req.user.id
+    });
+    res.status(201).json(task);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/tasks/:id
+app.put('/api/tasks/:id', async (req, res, next) => {
+  try {
+    const { title, description, completed } = req.body;
+    const task = await Task.findOne({ _id: req.params.id, user: req.user.id });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (completed !== undefined) task.completed = Boolean(completed);
+
+    await task.save();
+    res.status(200).json(task);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/tasks/:id
+app.delete('/api/tasks/:id', async (req, res, next) => {
+  try {
+    const task = await Task.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.status(200).json({ message: 'Task deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 404 Handler
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -145,51 +210,14 @@ app.use((req, res, next) => {
   });
 });
 
-// Global Error Handling Middleware (Structured JSON Error Responses)
+// Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('[Error Handler Log]:', err.name, '-', err.message);
-
-  // Mongoose Schema Validation Errors (e.g. missing title)
-  if (err.name === 'ValidationError') {
-    const errors = {};
-    const details = [];
-    Object.keys(err.errors).forEach((key) => {
-      errors[key] = err.errors[key].message;
-      details.push({ field: key, message: err.errors[key].message });
-    });
-
-    return res.status(400).json({
-      success: false,
-      error: 'Validation Error',
-      message: 'Task validation failed',
-      errors,
-      details
-    });
-  }
-
-  // Mongoose CastError (e.g. invalid ObjectId format)
-  if (err.name === 'CastError') {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid ID Format',
-      message: `The provided ID '${err.value}' is not a valid MongoDB ObjectId`
-    });
-  }
-
-  // General server errors
-  const statusCode = err.status || err.statusCode || 500;
-  res.status(statusCode).json({
-    success: false,
-    error: err.name || 'Internal Server Error',
-    message: err.message || 'An internal error occurred',
-    status: statusCode
-  });
+  console.error('Error:', err.message || err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Task Management server running on http://localhost:${PORT}`);
-  console.log(`Logging requests to CSV: ${LOG_FILE}`);
 });
 
 export default app;

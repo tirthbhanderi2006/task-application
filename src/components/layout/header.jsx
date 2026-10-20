@@ -1,17 +1,11 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
-export default function Header(props) {
+export default function Header() {
   return (
     <header className="hero-header">
-      <h1>Hi, I'm {props.name || "Tirth Bhanderi"}</h1>
+      <h1>Task Management System</h1>
       <p className="tagline">
-        I am an AI & ML Engineering student specializing in {props.branch || "Artificial Intelligence & Machine Learning"}.
-      </p>
-      <p>
-        <Link to="/about" className="hero-cta">
-          Learn more about me &rarr;
-        </Link>
+        Organize, track, and manage your daily tasks efficiently.
       </p>
     </header>
   );

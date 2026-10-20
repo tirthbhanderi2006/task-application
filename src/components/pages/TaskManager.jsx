@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ToastContainer from '../common/Toast';
 import ConfirmModal from '../common/ConfirmModal';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function TaskManager() {
-  // Task state
+export default function TaskManager({ setAuth }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -48,6 +47,26 @@ export default function TaskManager() {
     taskTitle: '',
     isDeleting: false
   });
+
+  const getHeaders = (extraHeaders = {}) => {
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...extraHeaders
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const handleUnauthorized = (status) => {
+    if (status === 401) {
+      localStorage.removeItem('token');
+      if (setAuth) setAuth(false);
+    }
+  };
 
   // Toasts state
   const [toasts, setToasts] = useState([]);
@@ -147,17 +166,18 @@ export default function TaskManager() {
       // 3. Send API call to MongoDB
       const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({
           title: optimisticTask.title,
           description: optimisticTask.description,
           priority: optimisticTask.priority
         })
       });
+      handleUnauthorized(res.status);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to create task (HTTP ${res.status})`);
+        throw new Error(errorData.message || errorData.error || `Failed to create task (HTTP ${res.status})`);
       }
 
       const createdTask = await res.json();
@@ -214,17 +234,18 @@ export default function TaskManager() {
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({
           title: trimmedTitle,
           description: editDescription.trim(),
           priority: editPriority
         })
       });
+      handleUnauthorized(res.status);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `HTTP ${res.status}`);
+        throw new Error(errData.message || errData.error || `HTTP ${res.status}`);
       }
 
       const updatedData = await res.json();
@@ -259,10 +280,10 @@ export default function TaskManager() {
 
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ completed: targetStatus })
       });
+      handleUnauthorized(res.status);
 
       if (!res.ok) {
         throw new Error(`Server returned HTTP ${res.status}`);
@@ -304,8 +325,10 @@ export default function TaskManager() {
 
     try {
       const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders()
       });
+      handleUnauthorized(res.status);
 
       if (!res.ok) {
         throw new Error(`Failed to delete task (HTTP ${res.status})`);

@@ -25,13 +25,18 @@ const taskSchema = new mongoose.Schema(
       default: 'medium',
       trim: true
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    },
     createdAt: {
       type: Date,
       default: Date.now
     }
   },
   {
-    timestamps: false,
+    timestamps: true,
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id.toString();
