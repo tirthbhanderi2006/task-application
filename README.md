@@ -85,3 +85,28 @@ Implemented route-level code splitting using `React.lazy()` and `React.Suspense`
 - **All Screenshots:** View complete image set in [docs/screenshots/](docs/screenshots/)
 - **Automated Profiling Suite:** `node scripts/measure_practical8_metrics.js`
 - **Raw Metrics Data:** [docs/metrics_practical8.json](docs/metrics_practical8.json)
+
+---
+
+### Practical 9: Server-Side In-Memory Caching with `node-cache`
+
+Implemented in-memory server-side caching using `node-cache` (60s TTL) for `GET /api/tasks`, combined with automated cache invalidation on write operations (`POST`, `PUT`, `DELETE`) to ensure strict read-after-write data correctness.
+
+#### Empirical Response Time Comparison Table
+
+| Request Condition | Sample 1 | Sample 2 | Sample 3 | Average Latency | Cache Header | Speedup / Reduction |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Uncached (MongoDB Query)** | 16.25 ms | 13.79 ms | 13.85 ms | **14.63 ms** | `X-Cache: MISS` | Baseline |
+| **Cached (`node-cache` RAM)** | 6.38 ms | 8.35 ms | 7.76 ms | **7.50 ms** | `X-Cache: HIT` | **48.7% faster (2.0x)** |
+
+#### Visual Evidence
+
+##### 1. Postman Response Time Comparison (Uncached vs. Cached)
+![Postman Uncached vs Cached](docs/screenshots/practical9_01_postman_uncached_vs_cached.png)
+
+##### 2. Cache Invalidation and Coherence Flow
+![Cache Invalidation Flow](docs/screenshots/practical9_02_cache_invalidation_flow.png)
+
+- **Detailed Academic Report & Viva Questions:** See [docs/PRACTICAL_9_REPORT.md](docs/PRACTICAL_9_REPORT.md)
+- **Raw Benchmark Metrics Data:** [docs/metrics_practical9.json](docs/metrics_practical9.json)
+- **Automated Benchmark Suite:** `node scripts/measure_practical9_caching.js`

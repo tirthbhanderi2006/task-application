@@ -10,6 +10,7 @@ import User from './models/User.js';
 import Task from './models/Task.js';
 import { protect } from './middleware/auth.js';
 import { validateTask, validateAuth } from './middleware/validate.js';
+import cache from './config/cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -147,11 +148,25 @@ app.get('/api/auth/me', protect, async (req, res, next) => {
 // Protect all task routes
 app.use('/api/tasks', protect);
 
-// GET /api/tasks
+// GET /api/tasks (with server-side in-memory caching using node-cache)
 app.get('/api/tasks', async (req, res, next) => {
   try {
+    const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
+    const cached = cache.get(cacheKey);
+
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.status(200).json(cached);
+    }
+
     const tasks = await Task.find({ user: req.user.id });
-    res.status(200).json({ data: tasks });
+    const responsePayload = { data: tasks };
+
+    // Store in cache with 60s TTL
+    cache.set(cacheKey, responsePayload);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.status(200).json(responsePayload);
   } catch (err) {
     next(err);
   }
@@ -166,6 +181,12 @@ app.post('/api/tasks', validateTask, async (req, res, next) => {
       description,
       user: req.user.id
     });
+
+    // Invalidate cache on write
+    const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
+    cache.del(cacheKey);
+    cache.del('all_tasks');
+
     res.status(201).json(task);
   } catch (err) {
     next(err);
@@ -184,6 +205,12 @@ app.put('/api/tasks/:id', async (req, res, next) => {
     if (completed !== undefined) task.completed = Boolean(completed);
 
     await task.save();
+
+    // Invalidate cache on update
+    const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
+    cache.del(cacheKey);
+    cache.del('all_tasks');
+
     res.status(200).json(task);
   } catch (err) {
     next(err);
@@ -195,6 +222,12 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
   try {
     const task = await Task.findOneAndDelete({ _id: req.params.id, user: req.user.id });
     if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    // Invalidate cache on deletion
+    const cacheKey = req.user?.id ? `tasks_${req.user.id}` : 'all_tasks';
+    cache.del(cacheKey);
+    cache.del('all_tasks');
+
     res.status(200).json({ message: 'Task deleted' });
   } catch (err) {
     next(err);

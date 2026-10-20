@@ -1,0 +1,58 @@
+{
+  "practical": "Practical 9: Server-Side Caching with node-cache",
+  "timestamp": "2026-10-20T06:02:20.265Z",
+  "configuration": {
+    "package": "node-cache v5.1.2",
+    "ttlSeconds": 60,
+    "checkperiodSeconds": 120,
+    "cacheKeyFormat": "tasks_6ad703ebf825464e23b0278f",
+    "datasetSize": 5
+  },
+  "uncachedReadings": [
+    {
+      "sample": 1,
+      "timeMs": 16.25,
+      "xCache": "MISS",
+      "tasksCount": 5
+    },
+    {
+      "sample": 2,
+      "timeMs": 13.79,
+      "xCache": "MISS",
+      "tasksCount": 5
+    },
+    {
+      "sample": 3,
+      "timeMs": 13.85,
+      "xCache": "MISS",
+      "tasksCount": 5
+    }
+  ],
+  "cachedReadings": [
+    {
+      "sample": 1,
+      "timeMs": 6.38,
+      "xCache": "HIT",
+      "tasksCount": 5
+    },
+    {
+      "sample": 2,
+      "timeMs": 8.35,
+      "xCache": "HIT",
+      "tasksCount": 5
+    },
+    {
+      "sample": 3,
+      "timeMs": 7.76,
+      "xCache": "HIT",
+      "tasksCount": 5
+    }
+  ],
+  "averages": {
+    "uncachedAvgMs": 14.63,
+    "cachedAvgMs": 7.5,
+    "latencyReductionPercent": 48.7,
+    "speedupMultiplier": "2x"
+  },
+  "invalidationVerified": true
+}
