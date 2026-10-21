@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ToastContainer from '../common/Toast';
 import ConfirmModal from '../common/ConfirmModal';
 import EventDrivenArchitectureDrawer from '../eda/EventDrivenArchitectureDrawer';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_BASE } from '../../config';
 
 export default function TaskManager({ setAuth }) {
   const [tasks, setTasks] = useState([]);

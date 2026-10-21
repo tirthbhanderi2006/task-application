@@ -1,0 +1,41 @@
+# Keep the build context small and never leak local secrets into images.
+node_modules
+node_modules/**
+dist
+dist-ssr
+.git
+.gitignore
+.gitattributes
+
+# Local environment files / secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Runtime artefacts
+backend/logs
+backend/logs/**
+**/*.log
+npm-debug.log*
+
+# Docker files themselves (avoid circular context)
+.dockerignore
+Dockerfile
+**/Dockerfile
+docker-compose*.yml
+
+# Docs / screenshots / capture scripts are not needed at runtime
+docs
+scripts
+img
+*.docx
+*.md
+!README.md
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+*.swp

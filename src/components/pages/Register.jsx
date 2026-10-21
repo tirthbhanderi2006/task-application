@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_BASE } from '../../config';
 
 export default function Register({ setAuth }) {
   const [email, setEmail] = useState('');
@@ -14,7 +15,6 @@ export default function Register({ setAuth }) {
     setError('');
 
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

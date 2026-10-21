@@ -1,0 +1,98 @@
+#
+# Secure Task Manager — full container stack
+#
+#   mongo    → MongoDB database (persistent volume)
+#   backend  → Express 5 REST API (Node 22, non-root user)
+#   frontend → React SPA served by nginx, reverse-proxying /api → backend
+#
+# Start everything:      docker compose up -d --build
+# Follow the logs:       docker compose logs -f
+# Tear everything down:  docker compose down -v
+#
+name: secure-task-manager
+
+services:
+  # ---------------------------------------------------------------------------
+  # MongoDB — persistent datastore
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: mongo:7
+    container_name: stm-mongo
+    restart: unless-stopped
+    command: ["mongod", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_DATABASE: task-manager
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - stm-net
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Backend — Express 5 API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: secure-task-manager/backend:latest
+    container_name: stm-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      DB_TYPE: mongo
+      MONGO_URI: mongodb://mongo:27017/task-manager
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_use_a_long_random_secret}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      # Host port -> container port. Override with BACKEND_PORT=xxxx
+      - "${BACKEND_PORT:-5000}:5000"
+    volumes:
+      # Keep CSV request logs + EDA exports outside of the container
+      - backend-logs:/app/backend/logs
+    networks:
+      - stm-net
+
+  # ---------------------------------------------------------------------------
+  # Frontend — nginx serving the built React SPA
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # "/" => same-origin relative API calls, proxied by nginx to the backend
+        VITE_API_URL: "/"
+    image: secure-task-manager/frontend:latest
+    container_name: stm-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Host port -> container port. Override with FRONTEND_PORT=xxxx
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - stm-net
+
+# ---------------------------------------------------------------------------
+# Named volumes (data persists across `docker compose down`)
+# ---------------------------------------------------------------------------
+volumes:
+  mongo-data:
+    driver: local
+  backend-logs:
+    driver: local
+
+networks:
+  stm-net:
+    driver: bridge
