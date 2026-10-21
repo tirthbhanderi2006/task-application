@@ -39,6 +39,142 @@ npm run server
 npm run dev
 ```
 
+---
+
+## Containerization with Docker & Docker Compose
+
+The whole stack (database, API, web UI) ships as three containers orchestrated by
+Docker Compose. Nothing needs to be installed on the host beyond Docker.
+
+### Architecture
+
+```
+                    ┌──────────────────────────────┐
+   Browser  ──────► │  frontend  (nginx:1.27)      │  :8080 → :80
+                    │  • serves the built Vite SPA │
+                    │  • SPA history fallback      │
+                    │  • reverse-proxies /api/*    │
+                    └───────────────┬──────────────┘
+                                    │  /api/*  (incl. SSE)
+                    ┌───────────────▼──────────────┐
+                    │  backend   (node:22-alpine)  │  :5000 → :5000
+                    │  • Express 5 REST API        │
+                    │  • JWT auth, cache, EDA/SSE  │
+                    │  • runs as the non-root       │
+                    │    "node" user                │
+                    └───────────────┬──────────────┘
+                                    │  mongodb://mongo:27017/task-manager
+                    ┌───────────────▼──────────────┐
+                    │  mongo     (mongo:7)         │
+                    │  • persistent volume         │
+                    │    "mongo-data"              │
+                    └──────────────────────────────┘
+```
+
+The frontend is built with `VITE_API_URL=/`, so the browser only ever talks to the
+**same origin** (`/api/...`). nginx forwards those calls to the backend container,
+which keeps the internal hostnames/ports out of the client bundle and removes any
+CORS dependency.
+
+### Files added
+
+| Path | Purpose |
+|---|---|
+| `docker-compose.yml` | Orchestrates `mongo`, `backend` and `frontend` |
+| `backend/Dockerfile` | Multi-stage build → slim `node:22-alpine` runtime |
+| `frontend/Dockerfile` | Vite build stage → `nginx:1.27-alpine` runtime |
+| `docker/nginx.conf` | SPA hosting, gzip, `/api` reverse proxy, SSE support |
+| `docker/smoke-test.sh` | End-to-end smoke test against the running stack |
+| `docker/fix-container-networking.sh` | Helper for nested-Docker hosts (see Troubleshooting) |
+| `.dockerignore` | Keeps the build context small and secrets out of images |
+
+### Quick start
+
+```bash
+# 1. (optional) copy and tune the environment file
+cp .env.example .env
+
+# 2. Build the images and start the stack in the background
+docker compose up -d --build
+
+# 3. Check that everything is up and healthy
+docker compose ps
+
+# 4. Open the application
+#    http://localhost:8080
+```
+
+| Service | Container URL | Host URL |
+|---|---|---|
+| Web UI (nginx) | `http://frontend:80` | http://localhost:8080 |
+| REST API | `http://backend:5000` | http://localhost:5000 |
+| MongoDB | `mongodb://mongo:27017/task-manager` | not published (internal only) |
+
+### Configuration
+
+All variables are optional — Compose falls back to sensible defaults.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `FRONTEND_PORT` | `8080` | Host port for the nginx-served SPA |
+| `BACKEND_PORT` | `5000` | Host port for the Express API |
+| `JWT_SECRET` | dev placeholder | JWT signing secret — **always override in production** |
+| `VITE_API_URL` (build arg) | `/` | Same-origin relative API calls through nginx |
+
+### Useful commands
+
+```bash
+docker compose ps                 # status + health of every service
+docker compose logs -f backend    # tail the API logs
+docker compose exec backend sh    # shell inside the API container
+docker compose restart backend    # restart just the API
+docker compose down               # stop the stack (data volumes are kept)
+docker compose down -v            # stop the stack and delete the volumes
+
+./docker/smoke-test.sh            # end-to-end smoke test (17 checks)
+```
+
+### Data persistence
+
+Two named volumes are used:
+
+- `mongo-data` → `/data/db` inside the MongoDB container (tasks & users survive restarts)
+- `backend-logs` → `/app/backend/logs` (CSV request log + EDA CSV exports)
+
+### Health checks & startup ordering
+
+Every image defines a `HEALTHCHECK`, and Compose uses `depends_on: condition:
+service_healthy`, so the start order is guaranteed:
+
+`mongo (healthy)` → `backend (healthy)` → `frontend`
+
+The backend's health check uses Node's built-in `fetch`, so no extra packages
+(`curl`/`wget`) have to be installed in the image.
+
+### Troubleshooting
+
+**Container-to-container connections time out** (backend logs
+`MongoDB connection error: MongooseServerSelectionError`, or nginx returns
+`504 Gateway Time-out`). This happens on nested-Docker / Docker-in-Docker hosts
+where `br_netfilter` filters same-bridge traffic. Fix it once per host:
+
+```bash
+sudo ./docker/fix-container-networking.sh
+docker compose restart backend
+```
+
+**Start from a clean slate** (also drops the database):
+
+```bash
+docker compose down -v && docker compose up -d --build
+```
+
+**Inspect the running stack:**
+
+```bash
+docker compose exec mongo mongosh --eval "db.getSiblingDB('task-manager').tasks.countDocuments()"
+```
+
 ### API Endpoints
 
 | Method | Endpoint | Description |

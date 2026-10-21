@@ -4,6 +4,7 @@ import Navbar from './components/layout/Navbar';
 import Header from './components/layout/header';
 import Footer from './components/layout/footer';
 import RouteLoadingFallback from './components/common/RouteLoadingFallback';
+import { API_BASE } from './config';
 
 // Route-based code splitting using React.lazy()
 const TaskManager = lazy(() => import('./components/pages/TaskManager'));
@@ -48,7 +49,6 @@ function App() {
     const fetchUser = async () => {
       if (auth) {
         try {
-          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
           const token = localStorage.getItem('token');
           const res = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './EventDrivenArchitectureDrawer.css';
-
-const API_BASE = 'http://localhost:5000';
+import { API_BASE } from '../../config';
 
 export default function EventDrivenArchitectureDrawer({ isOpen, onClose, userEmail }) {
   const [activeTab, setActiveTab] = useState('stream'); // 'stream' | 'jobs' | 'telemetry'
